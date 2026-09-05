@@ -2,7 +2,13 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const express = require('express');
 const fetch = require('node-fetch');
 
-// 1. Инициализация Discord бота
+const app = express();
+app.use(express.json());
+
+process.on('unhandledRejection', error => {
+    console.error('❌ Необработанная ошибка промиса:', error);
+});
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -11,60 +17,47 @@ const client = new Client({
     ]
 });
 
-// 2. Инициализация Express для вебхуков Testomat.io
-const app = express();
-app.use(express.json());
-
 const PORT = process.env.PORT || 3000;
-const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID; // ID канала для уведомлений тестов
+const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const TOKEN = process.env.DISCORD_BOT_TOKEN ? process.env.DISCORD_BOT_TOKEN.trim() : '';
 
 client.once('ready', () => {
-    console.log(`Бот авторизован как ${client.user.tag}`);
+    console.log(`🤖 Бот успешно авторизован как ${client.user.tag}!`);
 });
 
-// Обработка сообщений в Discord (общение с Gemini)
+client.on('error', error => {
+    console.error('❌ Ошибка клиента Discord:', error);
+});
+
+// Обработка сообщений для Gemini
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
-    // Бот отвечает, если его упомянули или если сообщение в ЛС
     if (message.mentions.has(client.user) || message.channel.type === 1) {
         const prompt = message.content.replace(`<@!${client.user.id}>`, '').replace(`<@${client.user.id}>`, '').trim();
         if (!prompt) return;
 
         try {
-            // Используем стабильную бесплатную модель gemini-1.5-flash
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             
             const response = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }]
+                    contents: [{ parts: [{ text: prompt }] }]
                 })
             });
 
             const data = await response.json();
             
-            // Если Google вернул ошибку, пишем её в чат для отладки
             if (data.error) {
                 console.error('Ошибка от API Gemini:', data.error);
                 await message.channel.send(`Ошибка API Gemini: ${data.error.message || 'Неизвестная ошибка'}`);
                 return;
             }
 
-            const reply = data.candidates && 
-                          data.candidates[0] && 
-                          data.candidates[0].content && 
-                          data.candidates[0].content.parts[0].text
-                ? data.candidates[0].content.parts[0].text
-                : 'Ошибка получения ответа от Gemini.';
-
-            // Отправка сообщения прямо в канал
+            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Ошибка получения ответа от Gemini.';
             await message.channel.send(reply);
         } catch (error) {
             console.error('Ошибка сети или кода:', error);
@@ -73,7 +66,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// Эндпоинт для приема вебхуков от Testomat.io
+// Вебхук для Testomat.io
 app.post('/webhook/testomat', async (req, res) => {
     try {
         const testData = req.body;
@@ -96,18 +89,14 @@ app.get('/', (req, res) => {
     res.send('Bot is running and alive!');
 });
 
-// Запуск сервера и бота
 app.listen(PORT, () => {
-    console.log(`Сервер вебхуков запущен на порту ${PORT}`);
+    console.log(`🌐 Сервер вебхуков запущен на порту ${PORT}`);
 });
 
-// Авторизация бота в Discord (обязательная строчка, без неё бот офлайн)
-client.on('error', error => {
-    console.error('Ошибка клиента Discord:', error);
-});
-
-process.on('unhandledRejection', error => {
-    console.error('Необработанная ошибка:', error);
-});
-
-client.login(process.env.DISCORD_BOT_TOKEN);
+if (!TOKEN) {
+    console.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Переменная DISCORD_BOT_TOKEN не задана на Render!');
+} else {
+    client.login(TOKEN)
+        .then(() => console.log('🔑 Авторизация в Discord прошла успешно!'))
+        .catch(err => console.error('❌ Ошибка входа в Discord:', err));
+}
