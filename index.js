@@ -33,8 +33,8 @@ client.on('messageCreate', async (message) => {
         if (!prompt) return;
 
         try {
-            // Запрос к бесплатному API Google Gemini
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+            // Используем стабильную бесплатную модель gemini-1.5-flash
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             
             const response = await fetch(url, {
                 method: 'POST',
@@ -42,17 +42,15 @@ client.on('messageCreate', async (message) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    contents: [
-                        {
-                            parts: [{ text: prompt }]
-                        }
-                    ]
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }]
                 })
             });
 
             const data = await response.json();
             
-            // Если Gemini возвращает ошибку
+            // Если Google вернул ошибку, пишем её в чат для отладки
             if (data.error) {
                 console.error('Ошибка от API Gemini:', data.error);
                 await message.channel.send(`Ошибка API Gemini: ${data.error.message || 'Неизвестная ошибка'}`);
@@ -66,7 +64,7 @@ client.on('messageCreate', async (message) => {
                 ? data.candidates[0].content.parts[0].text
                 : 'Ошибка получения ответа от Gemini.';
 
-            // Отправка сообщения прямо в канал (без цитирования)
+            // Отправка сообщения прямо в канал
             await message.channel.send(reply);
         } catch (error) {
             console.error('Ошибка сети или кода:', error);
@@ -82,7 +80,6 @@ app.post('/webhook/testomat', async (req, res) => {
         const channel = await client.channels.fetch(CHANNEL_ID);
         
         if (channel) {
-            // Формируем красивое сообщение о прогоне тестов
             const status = testData.status || 'обновление';
             const text = `📊 **Testomat.io отчет:** Статус прогона — **${status}**\nПроект: ${testData.project || 'Не указан'}`;
             await channel.send(text);
