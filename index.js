@@ -16,8 +16,8 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const CHANNEL_ID = process.env.1545824270142275714; // ID канала для уведомлений тестов
-const DEEPSEEK_API_KEY = process.env.sk-0036a939b362497f8b94ce5f6dae9759;
+const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID; // ID канала для уведомлений тестов
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
 client.once('ready', () => {
     console.log(`Бот авторизован как ${client.user.tag}`);
@@ -33,6 +33,8 @@ client.on('messageCreate', async (message) => {
         if (!prompt) return;
 
         try {
+            await message.channel.sendTyping();
+            
             const response = await fetch('https://api.deepseek.com/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -50,11 +52,10 @@ client.on('messageCreate', async (message) => {
                 ? data.choices[0].message.content 
                 : 'Ошибка получения ответа от DeepSeek.';
 
-            // Отправка сообщения прямо в канал (без привязки к конкретному сообщению)
-            await message.channel.send(reply);
+            await message.reply(reply);
         } catch (error) {
             console.error('Ошибка DeepSeek API:', error);
-            await message.channel.send('Произошла ошибка при обращении к нейросети.');
+            await message.reply('Произошла ошибка при обращении к нейросети.');
         }
     }
 });
