@@ -101,4 +101,5 @@ app.listen(PORT, () => {
     console.log(`Сервер вебхуков запущен на порту ${PORT}`);
 });
 
+// Авторизация бота в Discord (обязательная строчка, без неё бот офлайн)
 client.login(process.env.DISCORD_BOT_TOKEN);
