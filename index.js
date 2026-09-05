@@ -102,4 +102,12 @@ app.listen(PORT, () => {
 });
 
 // Авторизация бота в Discord (обязательная строчка, без неё бот офлайн)
+client.on('error', error => {
+    console.error('Ошибка клиента Discord:', error);
+});
+
+process.on('unhandledRejection', error => {
+    console.error('Необработанная ошибка:', error);
+});
+
 client.login(process.env.DISCORD_BOT_TOKEN);
