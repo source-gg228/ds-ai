@@ -33,8 +33,6 @@ client.on('messageCreate', async (message) => {
         if (!prompt) return;
 
         try {
-            await message.channel.sendTyping();
-            
             const response = await fetch('https://api.deepseek.com/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -42,20 +40,29 @@ client.on('messageCreate', async (message) => {
                     'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
                 },
                 body: JSON.stringify({
-                    model: "deepseek-chat",
+                    model: "deepseek-chat", // Актуальное рабочее название модели DeepSeek
                     messages: [{ role: "user", content: prompt }]
                 })
             });
 
             const data = await response.json();
+            
+            // Если DeepSeek возвращает ошибку через JSON, поймаем её для дебага
+            if (data.error) {
+                console.error('Ошибка от API DeepSeek:', data.error);
+                await message.channel.send(`Ошибка API DeepSeek: ${data.error.message || 'Неизвестная ошибка'}`);
+                return;
+            }
+
             const reply = data.choices && data.choices[0].message.content 
                 ? data.choices[0].message.content 
                 : 'Ошибка получения ответа от DeepSeek.';
 
-            await message.reply(reply);
+            // Отправка сообщения прямо в канал (без цитирования)
+            await message.channel.send(reply);
         } catch (error) {
-            console.error('Ошибка DeepSeek API:', error);
-            await message.reply('Произошла ошибка при обращении к нейросети.');
+            console.error('Ошибка сети или кода:', error);
+            await message.channel.send('Произошла ошибка при обращении к нейросети.');
         }
     }
 });
