@@ -17,13 +17,13 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID; // ID канала для уведомлений тестов
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 client.once('ready', () => {
     console.log(`Бот авторизован как ${client.user.tag}`);
 });
 
-// Обработка сообщений в Discord (общение с DeepSeek)
+// Обработка сообщений в Discord (общение с Gemini)
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
@@ -33,30 +33,38 @@ client.on('messageCreate', async (message) => {
         if (!prompt) return;
 
         try {
-            const response = await fetch('https://api.deepseek.com/chat/completions', {
+            // Запрос к бесплатному API Google Gemini
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+            
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: "deepseek-chat", // Актуальное рабочее название модели DeepSeek
-                    messages: [{ role: "user", content: prompt }]
+                    contents: [
+                        {
+                            parts: [{ text: prompt }]
+                        }
+                    ]
                 })
             });
 
             const data = await response.json();
             
-            // Если DeepSeek возвращает ошибку через JSON, поймаем её для дебага
+            // Если Gemini возвращает ошибку
             if (data.error) {
-                console.error('Ошибка от API DeepSeek:', data.error);
-                await message.channel.send(`Ошибка API DeepSeek: ${data.error.message || 'Неизвестная ошибка'}`);
+                console.error('Ошибка от API Gemini:', data.error);
+                await message.channel.send(`Ошибка API Gemini: ${data.error.message || 'Неизвестная ошибка'}`);
                 return;
             }
 
-            const reply = data.choices && data.choices[0].message.content 
-                ? data.choices[0].message.content 
-                : 'Ошибка получения ответа от DeepSeek.';
+            const reply = data.candidates && 
+                          data.candidates[0] && 
+                          data.candidates[0].content && 
+                          data.candidates[0].content.parts[0].text
+                ? data.candidates[0].content.parts[0].text
+                : 'Ошибка получения ответа от Gemini.';
 
             // Отправка сообщения прямо в канал (без цитирования)
             await message.channel.send(reply);
